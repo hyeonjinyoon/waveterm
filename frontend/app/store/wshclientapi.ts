@@ -432,6 +432,12 @@ export class RpcApiType {
         return client.wshRpcCall("getfullconfig", null, opts);
     }
 
+    // command "getidletime" [call]
+    GetIdleTimeCommand(client: WshClient, opts?: RpcOpts): Promise<number> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getidletime", null, opts);
+        return client.wshRpcCall("getidletime", null, opts);
+    }
+
     // command "getjwtpublickey" [call]
     GetJwtPublicKeyCommand(client: WshClient, opts?: RpcOpts): Promise<string> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "getjwtpublickey", null, opts);

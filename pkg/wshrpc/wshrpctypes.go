@@ -138,6 +138,7 @@ type WshRpcInterface interface {
 	ElectronDecryptCommand(ctx context.Context, data CommandElectronDecryptData) (*CommandElectronDecryptRtnData, error)
 	NetworkOnlineCommand(ctx context.Context) (bool, error)
 	ElectronSystemBellCommand(ctx context.Context) error
+	GetIdleTimeCommand(ctx context.Context) (int, error)
 
 	// secrets
 	GetSecretsCommand(ctx context.Context, names []string) (map[string]string, error)
@@ -451,9 +452,17 @@ type BlockInfoData struct {
 }
 
 type WaveNotificationOptions struct {
-	Title  string `json:"title,omitempty"`
-	Body   string `json:"body,omitempty"`
-	Silent bool   `json:"silent,omitempty"`
+	Title   string              `json:"title,omitempty"`
+	Body    string              `json:"body,omitempty"`
+	Silent  bool                `json:"silent,omitempty"`
+	Target  *NotificationTarget `json:"target,omitempty"`
+	NoFocus bool                `json:"nofocus,omitempty"`
+}
+
+type NotificationTarget struct {
+	BlockId     string `json:"blockid,omitempty"`
+	TabId       string `json:"tabid,omitempty"`
+	WorkspaceId string `json:"workspaceid,omitempty"`
 }
 
 type VDomUrlRequestData struct {

@@ -1225,6 +1225,13 @@ declare global {
         color: string;
     };
 
+    // wshrpc.NotificationTarget
+    type NotificationTarget = {
+        blockid?: string;
+        tabid?: string;
+        workspaceid?: string;
+    };
+
     // waveobj.ORef
     type ORef = string;
 
@@ -1442,6 +1449,7 @@ declare global {
         "autoupdate:channel"?: string;
         "markdown:fontsize"?: number;
         "markdown:fixedfontsize"?: number;
+        "notification:soundfile"?: string;
         "preview:showhiddenfiles"?: boolean;
         "preview:defaultsort"?: string;
         "tab:preset"?: string;
@@ -1589,6 +1597,7 @@ declare global {
         "debug:panictype"?: string;
         "block:view"?: string;
         "block:controller"?: string;
+        "block:subblock"?: boolean;
         "ai:backendtype"?: string;
         "ai:local"?: boolean;
         "wsh:cmd"?: string;
@@ -2065,6 +2074,8 @@ declare global {
         title?: string;
         body?: string;
         silent?: boolean;
+        target?: NotificationTarget;
+        nofocus?: boolean;
     };
 
     // waveobj.WaveObj

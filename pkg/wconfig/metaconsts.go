@@ -82,6 +82,8 @@ const (
 	ConfigKey_MarkdownFontSize               = "markdown:fontsize"
 	ConfigKey_MarkdownFixedFontSize          = "markdown:fixedfontsize"
 
+	ConfigKey_NotificationSoundFile          = "notification:soundfile"
+
 	ConfigKey_PreviewShowHiddenFiles         = "preview:showhiddenfiles"
 	ConfigKey_PreviewDefaultSort             = "preview:defaultsort"
 

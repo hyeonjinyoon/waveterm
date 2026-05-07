@@ -430,6 +430,12 @@ func GetFullConfigCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (wconfig.Full
 	return resp, err
 }
 
+// command "getidletime", wshserver.GetIdleTimeCommand
+func GetIdleTimeCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (int, error) {
+	resp, err := sendRpcRequestCallHelper[int](w, "getidletime", nil, opts)
+	return resp, err
+}
+
 // command "getjwtpublickey", wshserver.GetJwtPublicKeyCommand
 func GetJwtPublicKeyCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (string, error) {
 	resp, err := sendRpcRequestCallHelper[string](w, "getjwtpublickey", nil, opts)

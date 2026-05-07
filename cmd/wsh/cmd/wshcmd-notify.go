@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
@@ -14,9 +15,10 @@ import (
 
 var notifyTitle string
 var notifySilent bool
+var notifyNoFocus bool
 
 var setNotifyCmd = &cobra.Command{
-	Use:     "notify <message> [-t <title>] [-s]",
+	Use:     "notify <message> [-t <title>] [-s] [--no-focus]",
 	Short:   "create a notification",
 	Args:    cobra.ExactArgs(1),
 	RunE:    notifyRun,
@@ -26,6 +28,7 @@ var setNotifyCmd = &cobra.Command{
 func init() {
 	setNotifyCmd.Flags().StringVarP(&notifyTitle, "title", "t", "Wsh Notify", "the notification title")
 	setNotifyCmd.Flags().BoolVarP(&notifySilent, "silent", "s", false, "whether or not the notification sound is silenced")
+	setNotifyCmd.Flags().BoolVar(&notifyNoFocus, "no-focus", false, "do not focus the originating block when the notification is clicked")
 	rootCmd.AddCommand(setNotifyCmd)
 }
 
@@ -34,10 +37,20 @@ func notifyRun(cmd *cobra.Command, args []string) (rtnErr error) {
 		sendActivity("notify", rtnErr == nil)
 	}()
 	message := args[0]
+	var target *wshrpc.NotificationTarget
+	if blockId := os.Getenv("WAVETERM_BLOCKID"); blockId != "" {
+		target = &wshrpc.NotificationTarget{
+			BlockId:     blockId,
+			TabId:       os.Getenv("WAVETERM_TABID"),
+			WorkspaceId: os.Getenv("WAVETERM_WORKSPACEID"),
+		}
+	}
 	notificationOptions := &wshrpc.WaveNotificationOptions{
-		Title:  notifyTitle,
-		Body:   message,
-		Silent: notifySilent,
+		Title:   notifyTitle,
+		Body:    message,
+		Silent:  notifySilent,
+		Target:  target,
+		NoFocus: notifyNoFocus,
 	}
 	err := wshclient.NotifyCommand(RpcClient, *notificationOptions, &wshrpc.RpcOpts{Timeout: 2000, Route: wshutil.ElectronRoute})
 	if err != nil {

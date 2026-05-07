@@ -4,11 +4,19 @@
 import { WindowService } from "@/app/store/services";
 import { RpcResponseHelper, WshClient } from "@/app/store/wshclient";
 import { RpcApi } from "@/app/store/wshclientapi";
-import { Notification, net, safeStorage, shell } from "electron";
+import { spawn } from "child_process";
+import { Notification, net, powerMonitor, safeStorage, shell } from "electron";
 import { getResolvedUpdateChannel } from "emain/updater";
+import { existsSync } from "fs";
+import { fireAndForget } from "../frontend/util/util";
 import { unamePlatform } from "./emain-platform";
 import { getWebContentsByBlockId, webGetSelector } from "./emain-web";
-import { createBrowserWindow, getWaveWindowById, getWaveWindowByWorkspaceId } from "./emain-window";
+import {
+    createBrowserWindow,
+    getAllWaveWindows,
+    getWaveWindowById,
+    getWaveWindowByWorkspaceId,
+} from "./emain-window";
 
 export class ElectronWshClientType extends WshClient {
     constructor() {
@@ -32,11 +40,29 @@ export class ElectronWshClientType extends WshClient {
     }
 
     async handle_notify(rh: RpcResponseHelper, notificationOptions: WaveNotificationOptions) {
-        new Notification({
+        const fullConfig = await RpcApi.GetFullConfigCommand(ElectronWshClient);
+        const customSoundPath = fullConfig.settings["notification:soundfile"];
+        const useCustomSound =
+            process.platform === "win32" &&
+            !notificationOptions.silent &&
+            !!customSoundPath &&
+            existsSync(customSoundPath);
+
+        const n = new Notification({
             title: notificationOptions.title,
             body: notificationOptions.body,
-            silent: notificationOptions.silent,
-        }).show();
+            silent: useCustomSound ? true : notificationOptions.silent,
+        });
+        if (useCustomSound) {
+            playWindowsCustomSound(customSoundPath);
+        }
+        const target = notificationOptions.target;
+        if (!notificationOptions.nofocus && target?.blockid) {
+            n.on("click", () => {
+                fireAndForget(() => focusBlockFromNotification(target));
+            });
+        }
+        n.show();
     }
 
     async handle_getupdatechannel(rh: RpcResponseHelper): Promise<string> {
@@ -110,6 +136,10 @@ export class ElectronWshClientType extends WshClient {
         shell.beep();
     }
 
+    async handle_getidletime(rh: RpcResponseHelper): Promise<number> {
+        return powerMonitor.getSystemIdleTime();
+    }
+
     // async handle_workspaceupdate(rh: RpcResponseHelper) {
     //     console.log("workspaceupdate");
     //     fireAndForget(async () => {
@@ -125,4 +155,69 @@ export let ElectronWshClient: ElectronWshClientType;
 
 export function initElectronWshClient() {
     ElectronWshClient = new ElectronWshClientType();
+}
+
+function playWindowsCustomSound(soundPath: string) {
+    const winPath = soundPath.replace(/\//g, "\\");
+    const escapedPath = winPath.replace(/'/g, "''");
+    const psCommand = `(New-Object Media.SoundPlayer '${escapedPath}').PlaySync()`;
+    try {
+        const child = spawn(
+            "powershell.exe",
+            ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", psCommand],
+            { windowsHide: true }
+        );
+        child.on("error", (err) => {
+            console.log("playWindowsCustomSound spawn error:", err);
+        });
+        child.on("exit", (code) => {
+            if (code !== 0) {
+                console.log("playWindowsCustomSound exit code:", code);
+            }
+        });
+    } catch (e) {
+        console.log("playWindowsCustomSound failed:", e);
+    }
+}
+
+async function focusBlockFromNotification(target: NotificationTarget) {
+    let { blockid, tabid, workspaceid } = target;
+    if (!tabid || !workspaceid) {
+        try {
+            const info = await RpcApi.BlockInfoCommand(ElectronWshClient, blockid);
+            tabid = tabid || info.tabid;
+            workspaceid = workspaceid || info.workspaceid;
+        } catch (e) {
+            console.log("notify click: block info failed", blockid, e);
+            const fallback = getAllWaveWindows()[0];
+            if (fallback == null) return;
+            if (fallback.isMinimized()) fallback.restore();
+            fallback.focus();
+            return;
+        }
+    }
+    let ww = getWaveWindowByWorkspaceId(workspaceid);
+    if (ww == null) {
+        ww = getAllWaveWindows()[0];
+        if (ww == null) return;
+        if (ww.isMinimized()) ww.restore();
+        ww.focus();
+        return;
+    }
+    if (ww.isMinimized()) ww.restore();
+    ww.focus();
+    try {
+        await ww.setActiveTab(tabid, true);
+    } catch (e) {
+        console.log("notify click: setActiveTab failed", e);
+        return;
+    }
+    try {
+        await RpcApi.SetBlockFocusCommand(ElectronWshClient, blockid, {
+            route: `tab:${tabid}`,
+            timeout: 2000,
+        });
+    } catch (e) {
+        console.log("notify click: SetBlockFocus failed", e);
+    }
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/wavetermdev/waveterm/pkg/util/shellutil"
+	"github.com/wavetermdev/waveterm/pkg/wavebase"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc/wshclient"
@@ -162,7 +163,18 @@ func setupRpcClient(serverImpl wshutil.ServerImpl, jwtToken string) error {
 	}
 	RpcClient, err = wshutil.SetupDomainSocketRpcClient(sockName, serverImpl, "wshcmd")
 	if err != nil {
-		return fmt.Errorf("error setting up domain socket rpc client: %v", err)
+		// JWT socket may be stale (e.g. Wave restarted while tmux preserved the env).
+		// Fall back to the per-client symlink that Wave updates on each connection.
+		clientId := os.Getenv("WAVETERM_CLIENTID")
+		if clientId == "" {
+			return fmt.Errorf("error setting up domain socket rpc client: %v", err)
+		}
+		fallbackSock := wavebase.GetPersistentRemoteSockName(clientId)
+		var fbErr error
+		RpcClient, fbErr = wshutil.SetupDomainSocketRpcClient(fallbackSock, serverImpl, "wshcmd")
+		if fbErr != nil {
+			return fmt.Errorf("error setting up domain socket rpc client: %v (fallback %s: %v)", err, fallbackSock, fbErr)
+		}
 	}
 	authRtn, err := wshclient.AuthenticateCommand(RpcClient, jwtToken, &wshrpc.RpcOpts{Route: wshutil.ControlRoute})
 	if err != nil {
