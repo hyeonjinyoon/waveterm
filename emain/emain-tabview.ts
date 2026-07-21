@@ -198,6 +198,9 @@ export class WaveTabView extends WebContentsView {
     }
 
     positionTabOnScreen(winBounds: Rectangle) {
+        if (winBounds.width <= 0 || winBounds.height <= 0) {
+            return;
+        }
         const curBounds = this.getBounds();
         if (
             curBounds.width == winBounds.width &&

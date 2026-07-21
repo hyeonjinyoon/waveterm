@@ -292,6 +292,14 @@ export class WaveBrowserWindow extends BaseWindow {
         this.on("blur", () => {
             setTimeout(() => globalEvents.emit("windows-updated"), 50);
         });
+        this.on("restore", () => {
+            if (this.isDestroyed()) {
+                return;
+            }
+            // reposition immediately -- waiting for the next poller tick would leave the window
+            // showing only the background color for up to a second
+            this.activeTabView?.positionTabOnScreen(this.getContentBounds());
+        });
         this.on("close", (e) => {
             if (this.canClose) {
                 return;
@@ -515,6 +523,12 @@ export class WaveBrowserWindow extends BaseWindow {
         if (this.isDestroyed()) {
             return;
         }
+        // a minimized window reports degenerate content bounds (-32000/-32000, 0x0 on Windows);
+        // positioning the tabview with those collapses it to 0x0 and forces a full re-layout
+        // + re-raster on restore (the gray flash), so never reposition while minimized
+        if (this.isMinimized()) {
+            return;
+        }
         const curBounds = this.getContentBounds();
         this.activeTabView?.positionTabOnScreen(curBounds);
         for (const tabView of this.allLoadedTabViews.values()) {
@@ -630,6 +644,9 @@ export class WaveBrowserWindow extends BaseWindow {
 
     private async mainResizeHandler(_: any) {
         if (this == null || this.isDestroyed() || this.fullScreen) {
+            return;
+        }
+        if (this.isMinimized()) {
             return;
         }
         const bounds = this.getBounds();
