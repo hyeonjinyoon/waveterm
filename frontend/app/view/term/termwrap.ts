@@ -394,14 +394,25 @@ export class TermWrap {
         const ta = this.terminal.textarea;
         if (ta) {
             const onCompEnd = (e: CompositionEvent) => {
-                const compHelper = (this.terminal as any)._core?._inputHandler?._compositionHelper;
-                if (compHelper && "_isSendingComposition" in compHelper) {
-                    compHelper._isSendingComposition = false;
-                }
                 if (!e.data) {
                     return;
                 }
+                // xterm.js defers the composed text to a setTimeout(0), which lets the next keystroke
+                // overtake it. Send it now and cancel xterm's deferred send (the helper lives on
+                // _core, not on _inputHandler). pendingImeDedup only covers the case where the
+                // internal field is unavailable; its entries expire right after xterm's deferred
+                // callback would have run so stale entries cannot swallow unrelated input later.
+                const compHelper = (this.terminal as any)._core?._compositionHelper;
+                if (compHelper != null && "_isSendingComposition" in compHelper) {
+                    compHelper._isSendingComposition = false;
+                }
                 this.pendingImeDedup.push(e.data);
+                setTimeout(() => {
+                    const idx = this.pendingImeDedup.indexOf(e.data);
+                    if (idx !== -1) {
+                        this.pendingImeDedup.splice(idx, 1);
+                    }
+                }, 0);
                 this.sendDataHandler?.(e.data);
                 this.multiInputCallback?.(e.data);
             };
