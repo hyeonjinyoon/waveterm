@@ -673,6 +673,10 @@ function registerGlobalKeys() {
             switchTabAbs(idx);
             return true;
         });
+        globalKeyMap.set(`Ctrl:${idx}`, () => {
+            switchTabAbs(idx);
+            return true;
+        });
         globalKeyMap.set(`Ctrl:Shift:c{Digit${idx}}`, () => {
             switchBlockByBlockNum(idx);
             return true;
