@@ -89,4 +89,5 @@ type WSFileEventData struct {
 	FileName string `json:"filename"`
 	FileOp   string `json:"fileop"`
 	Data64   string `json:"data64"`
+	Offset   int64  `json:"offset,omitempty"`
 }

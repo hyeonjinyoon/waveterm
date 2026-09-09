@@ -353,14 +353,14 @@ func TestAppend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating file: %v", err)
 	}
-	err = WFS.AppendData(ctx, zoneId, fileName, []byte("hello"))
+	_, err = WFS.AppendData(ctx, zoneId, fileName, []byte("hello"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
 	// fmt.Print(GBS.dump())
 	checkFileSize(t, ctx, zoneId, fileName, 5)
 	checkFileData(t, ctx, zoneId, fileName, "hello")
-	err = WFS.AppendData(ctx, zoneId, fileName, []byte(" world"))
+	_, err = WFS.AppendData(ctx, zoneId, fileName, []byte(" world"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -407,7 +407,7 @@ func TestWriteFile(t *testing.T) {
 		t.Fatalf("error writing data: %v", err)
 	}
 	checkFileData(t, ctx, zoneId, "c1", "6789 123456789 123456789 123456789 123456789 apple")
-	err = WFS.AppendData(ctx, zoneId, "c1", []byte(" banana"))
+	_, err = WFS.AppendData(ctx, zoneId, "c1", []byte(" banana"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestCircularWrites(t *testing.T) {
 		t.Fatalf("error writing data: %v", err)
 	}
 	checkFileData(t, ctx, zoneId, "c1", "123456789 123456789 123456789 123456789 123456789 ")
-	err = WFS.AppendData(ctx, zoneId, "c1", []byte("apple"))
+	_, err = WFS.AppendData(ctx, zoneId, "c1", []byte("apple"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestCircularWrites(t *testing.T) {
 	}
 	checkFileSize(t, ctx, zoneId, "c1", 55)
 	checkFileData(t, ctx, zoneId, "c1", "a789 123456789 123456789 123456789 123456789 apple")
-	err = WFS.AppendData(ctx, zoneId, "c1", []byte(" banana"))
+	_, err = WFS.AppendData(ctx, zoneId, "c1", []byte(" banana"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestCircularWrites(t *testing.T) {
 	if offset != 12 {
 		t.Errorf("offset mismatch: expected 12, got %d", offset)
 	}
-	err = WFS.AppendData(ctx, zoneId, "c1", []byte(" world"))
+	_, err = WFS.AppendData(ctx, zoneId, "c1", []byte(" world"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestCircularWrites(t *testing.T) {
 		t.Errorf("offset mismatch: expected 18, got %d", offset)
 	}
 	checkFileData(t, ctx, zoneId, "c1", "9 foo456789 123456789 123456789 apple banana world")
-	err = WFS.AppendData(ctx, zoneId, "c1", []byte(" 123456789 123456789 123456789 123456789 bar456789 123456789"))
+	_, err = WFS.AppendData(ctx, zoneId, "c1", []byte(" 123456789 123456789 123456789 123456789 bar456789 123456789"))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -513,7 +513,7 @@ func TestMultiPart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating file: %v", err)
 	}
-	err = WFS.AppendData(ctx, zoneId, fileName, []byte(data))
+	_, err = WFS.AppendData(ctx, zoneId, fileName, []byte(data))
 	if err != nil {
 		t.Fatalf("error appending data: %v", err)
 	}
@@ -628,7 +628,7 @@ func TestConcurrentAppend(t *testing.T) {
 			const hexChars = "0123456789abcdef"
 			ch := hexChars[n]
 			for j := 0; j < 100; j++ {
-				err := WFS.AppendData(ctx, zoneId, fileName, []byte{ch})
+				_, err := WFS.AppendData(ctx, zoneId, fileName, []byte{ch})
 				if err != nil {
 					t.Errorf("error appending data (%d): %v", n, err)
 				}

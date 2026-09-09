@@ -50,6 +50,12 @@ const dlog = debug("wave:termwrap");
 const TermFileName = "term";
 const TermCacheFileName = "cache:term:full";
 const MinDataProcessedForCache = 100 * 1024;
+
+type HeldFileData = {
+    offset: number;
+    data: Uint8Array;
+};
+
 export const SupportsImageInput = true;
 const MaxRepaintTransactionMs = 2000;
 
@@ -86,7 +92,7 @@ export class TermWrap {
     serializeAddon: SerializeAddon;
     mainFileSubject: SubjectWithRef<WSFileEventData>;
     loaded: boolean;
-    heldData: Uint8Array[];
+    heldData: HeldFileData[];
     handleResize_debounced: () => void;
     hasResized: boolean;
     multiInputCallback: (data: string) => void;
@@ -459,6 +465,7 @@ export class TermWrap {
         try {
             await this.loadInitialTerminalData();
         } finally {
+            this.flushHeldData();
             this.loaded = true;
         }
         this.runProcessIdleTimeout();
@@ -507,16 +514,30 @@ export class TermWrap {
         if (msg.fileop == "truncate") {
             this.terminal.clear();
             this.heldData = [];
+            this.ptyOffset = 0;
         } else if (msg.fileop == "append") {
             const decodedData = base64ToArray(msg.data64);
             if (this.loaded) {
                 this.doTerminalWrite(decodedData, null);
             } else {
-                this.heldData.push(decodedData);
+                this.heldData.push({ offset: msg.offset ?? 0, data: decodedData });
             }
         } else {
             console.log("bad fileop for terminal", msg);
             return;
+        }
+    }
+
+    // appends that arrived during the initial load are replayed only if the main file fetch
+    // did not already include them (ptyOffset is the file size at fetch time)
+    flushHeldData() {
+        const held = this.heldData;
+        this.heldData = [];
+        for (const entry of held) {
+            if (entry.offset < this.ptyOffset) {
+                continue;
+            }
+            this.doTerminalWrite(entry.data, null);
         }
     }
 
@@ -564,7 +585,7 @@ export class TermWrap {
                     this.terminal.resize(fileTermSize.cols, fileTermSize.rows);
                     didResize = true;
                 }
-                this.doTerminalWrite(cacheData, ptyOffset);
+                await this.doTerminalWrite(cacheData, ptyOffset);
                 if (didResize) {
                     this.terminal.resize(curTermSize.cols, curTermSize.rows);
                 }
@@ -576,6 +597,7 @@ export class TermWrap {
         );
         if (mainFile != null) {
             await this.doTerminalWrite(mainData, null);
+            this.ptyOffset = mainFile.size;
         }
     }
 

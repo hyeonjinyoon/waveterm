@@ -361,9 +361,6 @@ export function handleOsc16162Command(data: string, blockId: string, loaded: boo
         case "R":
             globalStore.set(termWrap.shellIntegrationStatusAtom, null);
             globalStore.set(termWrap.claudeCodeActiveAtom, false);
-            if (terminal.buffer.active.type === "alternate") {
-                terminal.write("\x1b[?1049l");
-            }
             break;
     }
 

@@ -196,7 +196,10 @@ func (sc *ShellController) UpdateControllerAndSendUpdate(updateFn func() bool) {
 	}
 }
 
-func (sc *ShellController) resetTerminalState(logCtx context.Context) {
+// scrollRows > 0 pushes the current viewport into scrollback before a ConPTY-backed shell
+// starts. ConPTY repaints from an empty screen using absolute cursor positions and opens
+// with ESC[2J, which xterm.js applies in place (the visible rows would be lost, not scrolled).
+func (sc *ShellController) resetTerminalState(logCtx context.Context, scrollRows int) {
 	ctx, cancelFn := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancelFn()
 	wfile, statErr := filestore.WFS.Stat(ctx, sc.BlockId, wavebase.BlockFile_Term)
@@ -212,11 +215,28 @@ func (sc *ShellController) resetTerminalState(logCtx context.Context) {
 	}
 	blocklogger.Debugf(logCtx, "[conndebug] resetTerminalState: resetting terminal state\n")
 	resetSeq := shellutil.GetTerminalResetSeq()
-	resetSeq += "\r\n"
+	if scrollRows > 0 {
+		resetSeq += strings.Repeat("\r\n", scrollRows)
+	} else {
+		resetSeq += "\r\n"
+	}
 	err := HandleAppendBlockFile(sc.BlockId, wavebase.BlockFile_Term, []byte(resetSeq))
 	if err != nil {
 		log.Printf("error appending to blockfile (terminal reset): %v\n", err)
 	}
+}
+
+func getConPtyScrollRows(remoteName string, termSize waveobj.TermSize) int {
+	if runtime.GOOS != "windows" {
+		return 0
+	}
+	if !conncontroller.IsLocalConnName(remoteName) && !strings.HasPrefix(remoteName, "wsl://") {
+		return 0
+	}
+	if termSize.Rows <= 0 {
+		return shellutil.DefaultTermRows
+	}
+	return termSize.Rows
 }
 
 func (sc *ShellController) writeMutedMessageToTerminal(msg string) {
@@ -382,16 +402,16 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 	if fsErr != nil && fsErr != fs.ErrExist {
 		return nil, fmt.Errorf("error creating blockfile: %w", fsErr)
 	}
+	remoteName := blockMeta.GetString(waveobj.MetaKey_Connection, "")
 	if fsErr == fs.ErrExist {
 		// reset the terminal state
-		bc.resetTerminalState(logCtx)
+		bc.resetTerminalState(logCtx, getConPtyScrollRows(remoteName, rc.TermSize))
 	}
 	bcInitStatus := bc.GetRuntimeStatus()
 	if bcInitStatus.ShellProcStatus == Status_Running {
 		return nil, nil
 	}
 	// TODO better sync here (don't let two starts happen at the same times)
-	remoteName := blockMeta.GetString(waveobj.MetaKey_Connection, "")
 	connUnion, err := bc.getConnUnion(logCtx, remoteName, blockMeta)
 	if err != nil {
 		return nil, err
@@ -601,7 +621,7 @@ func (bc *ShellController) manageRunningShellProcess(shellProc *shellexec.ShellP
 		waitErr := shellProc.Cmd.Wait()
 		exitCode = shellProc.Cmd.ExitCode()
 		shellProc.SetWaitErrorAndSignalDone(waitErr)
-		bc.resetTerminalState(context.Background())
+		bc.resetTerminalState(context.Background(), 0)
 		exitSignal := shellProc.Cmd.ExitSignal()
 		var baseMsg string
 		if bc.ControllerType == BlockController_Shell {

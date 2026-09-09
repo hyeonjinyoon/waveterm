@@ -623,7 +623,12 @@ func FixupWaveZshHistory() error {
 }
 
 func GetTerminalResetSeq() string {
-	resetSeq := "\x1b[0m"             // reset attributes
+	// DECSC + DECRST 1049 leaves the alternate screen at parse time. The frontend cannot do
+	// this from an OSC handler because terminal.write() is queued behind already buffered
+	// data. DECSC first makes DECRST 1049 a no-op on the normal buffer (the saved cursor is
+	// per-buffer), so only an active alt screen is affected.
+	resetSeq := "\x1b7\x1b[?1049l"
+	resetSeq += "\x1b[0m"             // reset attributes
 	resetSeq += "\x1b[?25h"           // show cursor
 	resetSeq += "\x1b[?1l"            // normal cursor keys
 	resetSeq += "\x1b[?7h"            // wraparound on
